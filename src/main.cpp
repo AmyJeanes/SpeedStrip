@@ -89,14 +89,10 @@ void loop()
     g_statusLed.update();
 
     g_can.poll();
-    if (g_can.hasNewFrontLighting())
+    if (g_can.hasNewDISystemStatus())
     {
-        auto fl = g_can.getFrontLighting();
-        bool leftActive = (fl.indicatorLeftRequest == CANManager::IndicatorReq::ActiveLow ||
-                           fl.indicatorLeftRequest == CANManager::IndicatorReq::ActiveHigh);
-        bool rightActive = (fl.indicatorRightRequest == CANManager::IndicatorReq::ActiveLow ||
-                            fl.indicatorRightRequest == CANManager::IndicatorReq::ActiveHigh);
-        g_lightStrip.setIndicators(leftActive, rightActive);
+        auto di = g_can.getDISystemStatus();
+        g_lightStrip.setAccelPosition(di.accelPedalPosPercent);
     }
 
     g_lightStrip.update(now);
