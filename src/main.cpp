@@ -81,6 +81,15 @@ void setup()
 void loop()
 {
     static uint32_t lastEncoderMs = 0;
+    static uint32_t benchLastMs = 0;
+    static uint32_t loopCount = 0;
+    static uint32_t loopAccumUs = 0;
+    static uint32_t loopMaxUs = 0;
+    static uint32_t stripCount = 0;
+    static uint32_t stripAccumUs = 0;
+    static uint32_t stripMaxUs = 0;
+
+    uint32_t loopStartUs = micros();
     uint32_t now = millis();
 
     // Encoder at configured interval
@@ -99,5 +108,50 @@ void loop()
         g_lightStrip.setAccelPosition(di.accelPedalPosPercent);
     }
 
+    uint32_t stripStartUs = micros();
     g_lightStrip.update(now);
+    uint32_t stripDurUs = micros() - stripStartUs;
+    ++stripCount;
+    stripAccumUs += stripDurUs;
+    if (stripDurUs > stripMaxUs)
+        stripMaxUs = stripDurUs;
+
+    ++loopCount;
+    uint32_t loopDurUs = micros() - loopStartUs;
+    loopAccumUs += loopDurUs;
+    if (loopDurUs > loopMaxUs)
+        loopMaxUs = loopDurUs;
+
+    if (PERF_LOG_ENABLED)
+    {
+        if (benchLastMs == 0)
+            benchLastMs = now;
+
+        uint32_t elapsedMs = now - benchLastMs;
+        if (elapsedMs >= PERF_LOG_INTERVAL_MS && elapsedMs > 0)
+        {
+            uint32_t loopsPerSec = (loopCount * 1000UL) / elapsedMs;
+            uint32_t loopAvgUs = loopCount ? (loopAccumUs / loopCount) : 0;
+            uint32_t stripAvgUs = stripCount ? (stripAccumUs / stripCount) : 0;
+
+            Serial.print(F("[perf] loop "));
+            Serial.print(loopsPerSec);
+            Serial.print(F("/s avg "));
+            Serial.print(loopAvgUs);
+            Serial.print(F("us max "));
+            Serial.print(loopMaxUs);
+            Serial.print(F(" | strip avg "));
+            Serial.print(stripAvgUs);
+            Serial.print(F("us max "));
+            Serial.println(stripMaxUs);
+
+            benchLastMs = now;
+            loopCount = 0;
+            loopAccumUs = 0;
+            loopMaxUs = 0;
+            stripCount = 0;
+            stripAccumUs = 0;
+            stripMaxUs = 0;
+        }
+    }
 }
