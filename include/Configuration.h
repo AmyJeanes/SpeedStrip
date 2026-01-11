@@ -12,6 +12,7 @@ constexpr bool DEMO_MODE = false; // Enable demo mode if CAN is unavailable
 // I2C addresses (default Adafruit breakout values)
 constexpr uint8_t ENCODER_I2C_ADDR = 0x36; // Rotary encoder w/ NeoPixel (seesaw)
 constexpr uint8_t NEOPIXEL_I2C_ADDR = 0x60; // NeoPixel driver (seesaw)
+constexpr uint32_t I2C_CLOCK_HZ = 400000; // Use fast-mode I2C for quicker pixel uploads
 
 // Encoder seesaw pin assignments
 constexpr uint8_t ENCODER_SWITCH_PIN = 24; // GPIO for push switch (active low)
@@ -21,8 +22,9 @@ constexpr uint8_t ENCODER_PIXEL_PIN = 6;   // NeoPixel data pin on encoder board
 constexpr uint8_t ENCODER_PIXEL_BRIGHTNESS = 20; // range 0-255
 
 // NeoPixel strip configuration
-constexpr uint8_t NEOPIXEL_STRIP_LENGTH = 75; // Number of pixels in the strip
+constexpr uint8_t NEOPIXEL_STRIP_LENGTH = 75; // Physical pixels on the strip
 constexpr uint8_t NEOPIXEL_STRIP_PIN = 15; // GPIO for NeoPixel strip data
+constexpr float NEOPIXEL_VIRTUAL_LENGTH = 255.0f; // Logical pixels for sub-pixel blending
 constexpr uint8_t NEOPIXEL_UPDATE_INTERVAL_MS = 50; // How often to update the strip
 constexpr float NEOPIXEL_GAMMA = 2.0f; // Gamma for fractional pixel blending
 

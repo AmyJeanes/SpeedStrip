@@ -13,7 +13,14 @@ public:
 
     bool begin();
     void setAccelPosition(float percent);
-    void setDemoMode(bool enabled) { _demoMode = enabled; }
+    void setDemoMode(bool enabled)
+    {
+        if (_demoMode != enabled)
+        {
+            _demoMode = enabled;
+            _needsRefresh = true;
+        }
+    }
     void update(uint32_t now);
 
 private:
@@ -25,6 +32,8 @@ private:
     bool _demoMode{DEMO_MODE};
     float _accelPercent{0.0f};
     bool _hasAccel{false};
+    float _lastRenderedPercent{-1.0f};
+    bool _needsRefresh{true};
     uint32_t _lastNeoPixelMs{0};
     uint16_t _rainbowStep{0};
 };

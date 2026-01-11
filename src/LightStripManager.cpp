@@ -17,6 +17,8 @@ void LightStripManager::setAccelPosition(float percent)
     else if (percent > 100.0f)
         percent = 100.0f;
 
+    if (fabsf(percent - _accelPercent) > 0.01f)
+        _needsRefresh = true;
     _accelPercent = percent;
     _hasAccel = true;
 }
@@ -53,14 +55,20 @@ void LightStripManager::applyAccelPattern(uint32_t now)
     else if (percent > 100.0f)
         percent = 100.0f;
 
+    if (!_demoMode && !_needsRefresh && fabsf(percent - _lastRenderedPercent) < 0.01f)
+        return; // No visible change; avoid re-sending the frame over I2C
+
     float ratio = percent / 100.0f;
     uint16_t total = _strip.numPixels();
     if (total == 0)
         return;
 
-    float scaled = ratio * (float)total;
-    uint16_t fullPixels = (uint16_t)scaled; // floor
-    float fractional = scaled - (float)fullPixels;
+    float virtualLength = NEOPIXEL_VIRTUAL_LENGTH;
+    if (virtualLength <= 0.0f)
+        virtualLength = (float)total;
+
+    float litLength = ratio * virtualLength; // how much of the virtual bar is "on"
+    float segmentSize = virtualLength / (float)total; // virtual units per physical pixel
 
     // Color gradient shifts from cool (low throttle) to warm (high throttle).
     uint8_t r = (uint8_t)(20.0f + (235.0f * ratio));
@@ -83,19 +91,26 @@ void LightStripManager::applyAccelPattern(uint32_t now)
 
     for (uint16_t i = 0; i < total; ++i)
     {
-        if (i < fullPixels)
+        float start = segmentSize * (float)i;
+        float end = start + segmentSize;
+
+        float covered = 0.0f;
+        if (litLength > start)
         {
-            _strip.setPixelColor(i, color);
+            float clippedEnd = (litLength < end) ? litLength : end;
+            covered = clippedEnd - start;
+            if (covered < 0.0f)
+                covered = 0.0f;
+            if (covered > segmentSize)
+                covered = segmentSize;
         }
-        else if (i == fullPixels && fractional > 0.0f)
-        {
-            _strip.setPixelColor(i, scaledColor(fractional));
-        }
-        else
-        {
-            _strip.setPixelColor(i, 0);
-        }
+
+        float coverageRatio = covered / segmentSize; // 0..1 fraction of this pixel lit
+        _strip.setPixelColor(i, scaledColor(coverageRatio));
     }
 
     _strip.show();
+
+    _lastRenderedPercent = percent;
+    _needsRefresh = false;
 }

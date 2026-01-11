@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <Wire.h>
 #include "Configuration.h"
 #include "ColorUtils.h"
 #include "EncoderManager.h"
@@ -29,6 +30,9 @@ void setup()
 
     Serial.println();
     Serial.println(F("Input system starting..."));
+
+    Wire.begin();
+    Wire.setClock(I2C_CLOCK_HZ);
 
     if (!g_encoder.begin(ENCODER_I2C_ADDR, ENCODER_PIXEL_BRIGHTNESS))
     {
