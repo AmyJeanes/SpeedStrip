@@ -3,6 +3,15 @@
 
 #include <stdint.h>
 
+// General configuration
+
+constexpr bool SERIAL_WAIT = true; // Wait for Serial connection on startup
+constexpr uint16_t SERIAL_WAIT_TIMEOUT_MS = 10000; // Max wait time (0 = infinite)
+constexpr bool DEMO_MODE = true; // Enable demo mode if CAN is unavailable
+
+// Indicator flash timing
+constexpr uint16_t INDICATOR_FLASH_MS = 400;
+
 // I2C addresses (default Adafruit breakout values)
 constexpr uint8_t ENCODER_I2C_ADDR = 0x36; // Rotary encoder w/ NeoPixel (seesaw)
 constexpr uint8_t NEOPIXEL_I2C_ADDR = 0x60; // NeoPixel driver (seesaw)

@@ -2,7 +2,7 @@
 #pragma once
 #include <Adafruit_MCP2515.h>
 #include <Arduino.h>
-#include "HardwareConfig.h"
+#include "Configuration.h"
 
 // Provide a sensible default for the MCP2515 chip-select pin if the board core
 // does not define PIN_CAN_CS (Feather CAN boards usually do).
