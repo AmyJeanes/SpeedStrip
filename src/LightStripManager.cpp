@@ -10,7 +10,7 @@ bool LightStripManager::begin()
     return _strip.begin(_i2cAddr);
 }
 
-void LightStripManager::setAccelPosition(float percent)
+void LightStripManager::setAccelPosition(float percent, bool reverse)
 {
     if (percent < 0.0f)
         percent = 0.0f;
@@ -20,6 +20,9 @@ void LightStripManager::setAccelPosition(float percent)
     if (fabsf(percent - _accelPercent) > 0.01f)
         _needsRefresh = true;
     _accelPercent = percent;
+    if (reverse != _reverse)
+        _needsRefresh = true;
+    _reverse = reverse;
     _hasAccel = true;
 }
 
@@ -28,6 +31,29 @@ void LightStripManager::update(uint32_t now)
     if (now - _lastNeoPixelMs < NEOPIXEL_UPDATE_INTERVAL_MS)
         return;
     _lastNeoPixelMs = now;
+    // Exponential smoothing to make motion feel less stepped.
+    float target = _hasAccel ? _accelPercent : 0.0f;
+    if (_lastSmoothMs == 0)
+    {
+        _lastSmoothMs = now;
+        _smoothedPercent = target;
+    }
+    else
+    {
+        uint32_t dtMs = now - _lastSmoothMs;
+        _lastSmoothMs = now;
+        if (STRIP_SMOOTH_TIME_MS == 0)
+        {
+            _smoothedPercent = target;
+        }
+        else
+        {
+            float dt = (float)dtMs;
+            float tau = (float)STRIP_SMOOTH_TIME_MS;
+            float alpha = 1.0f - expf(-dt / tau);
+            _smoothedPercent = _smoothedPercent + (target - _smoothedPercent) * alpha;
+        }
+    }
     applyAccelPattern(now);
 }
 
@@ -49,7 +75,7 @@ void LightStripManager::applyAccelPattern(uint32_t now)
         return;
     }
 
-    float percent = _hasAccel ? _accelPercent : 0.0f;
+    float percent = _hasAccel ? _smoothedPercent : 0.0f;
     if (percent < 0.0f)
         percent = 0.0f;
     else if (percent > 100.0f)
@@ -74,7 +100,6 @@ void LightStripManager::applyAccelPattern(uint32_t now)
     uint8_t r = (uint8_t)(20.0f + (235.0f * ratio));
     uint8_t g = (uint8_t)(20.0f + (120.0f * (1.0f - ratio)));
     uint8_t b = (uint8_t)(30.0f + (180.0f * (1.0f - ratio)));
-    uint32_t color = _strip.Color(r, g, b);
 
     auto scaledColor = [&](float scale)
     {
@@ -91,7 +116,8 @@ void LightStripManager::applyAccelPattern(uint32_t now)
 
     for (uint16_t i = 0; i < total; ++i)
     {
-        float start = segmentSize * (float)i;
+        uint16_t pixelIndex = _reverse ? (uint16_t)(total - 1 - i) : i;
+        float start = segmentSize * (float)pixelIndex;
         float end = start + segmentSize;
 
         float covered = 0.0f;
