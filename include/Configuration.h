@@ -40,14 +40,14 @@ constexpr uint16_t ENCODER_SCAN_INTERVAL_MS = 10; // Fast enough for quick spins
 // CAN bus configuration
 constexpr uint32_t CAN_BAUDRATE = 500000; // bits per second
 
-// Acceleration estimation (derived from DI_vehicleSpeed)
-constexpr uint16_t ACCEL_WINDOW_MS = 300; // Time window for speed regression smoothing
-constexpr float ACCEL_MIN_MPS2 = 0.3f; // Minimum accel magnitude to show anything
-constexpr float ACCEL_MAX_MPS2 = 5.0f; // Accel mapped to 100% for the light strip
-
 // Power estimation (derived from DI_torqueCommand + DI_axleSpeed)
-constexpr float POWER_MIN_W = 2000.0f; // Minimum power magnitude to show anything
-constexpr float POWER_MAX_W = 80000.0f; // Power mapped to 100% for the light strip
+constexpr float POWER_ACCEL_MIN_W = 2000.0f; // Minimum accel power to show anything
+constexpr float POWER_ACCEL_MAX_W = 80000.0f; // Accel power mapped to 100% for the light strip
+constexpr float POWER_REGEN_MIN_W = 800.0f; // Minimum regen power to show anything
+constexpr float POWER_REGEN_MAX_W = 40000.0f; // Regen power mapped to 100% for the light strip
+constexpr float POWER_NEUTRAL_PERCENT = 23.0f; // Bar percent at zero power (neutral point)
+constexpr float POWER_REGEN_ON_W = 800.0f; // Enter regen when power <= -this
+constexpr float POWER_REGEN_OFF_W = 400.0f; // Exit regen when power >= -this
 
 // Visual smoothing
 constexpr uint16_t STRIP_SMOOTH_TIME_MS = 250; // Time constant for smoothing display changes

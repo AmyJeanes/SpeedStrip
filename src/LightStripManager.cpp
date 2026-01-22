@@ -10,19 +10,16 @@ bool LightStripManager::begin()
     return _strip.begin(_i2cAddr);
 }
 
-void LightStripManager::setAccelPosition(float percent, bool reverse)
+void LightStripManager::setAccelPercent(float signedPercent)
 {
-    if (percent < 0.0f)
-        percent = 0.0f;
-    else if (percent > 100.0f)
-        percent = 100.0f;
+    if (signedPercent < -100.0f)
+        signedPercent = -100.0f;
+    else if (signedPercent > 100.0f)
+        signedPercent = 100.0f;
 
-    if (fabsf(percent - _accelPercent) > 0.01f)
+    if (fabsf(signedPercent - _accelPercent) > 0.01f)
         _needsRefresh = true;
-    _accelPercent = percent;
-    if (reverse != _reverse)
-        _needsRefresh = true;
-    _reverse = reverse;
+    _accelPercent = signedPercent;
     _hasAccel = true;
 }
 
@@ -75,16 +72,17 @@ void LightStripManager::applyAccelPattern(uint32_t now)
         return;
     }
 
-    float percent = _hasAccel ? _smoothedPercent : 0.0f;
-    if (percent < 0.0f)
-        percent = 0.0f;
-    else if (percent > 100.0f)
-        percent = 100.0f;
+    float signedPercent = _hasAccel ? _smoothedPercent : 0.0f;
+    if (signedPercent < -100.0f)
+        signedPercent = -100.0f;
+    else if (signedPercent > 100.0f)
+        signedPercent = 100.0f;
 
-    if (!_demoMode && !_needsRefresh && fabsf(percent - _lastRenderedPercent) < 0.01f)
+    if (!_demoMode && !_needsRefresh && fabsf(signedPercent - _lastRenderedPercent) < 0.01f)
         return; // No visible change; avoid re-sending the frame over I2C
 
-    float ratio = percent / 100.0f;
+    bool reverse = signedPercent < 0.0f;
+    float ratio = fabsf(signedPercent) / 100.0f;
     uint16_t total = _strip.numPixels();
     if (total == 0)
         return;
@@ -93,13 +91,36 @@ void LightStripManager::applyAccelPattern(uint32_t now)
     if (virtualLength <= 0.0f)
         virtualLength = (float)total;
 
-    float litLength = ratio * virtualLength; // how much of the virtual bar is "on"
+    float neutralRatio = POWER_NEUTRAL_PERCENT / 100.0f;
+    float neutralPos = neutralRatio * virtualLength;
+    float accelSpan = (1.0f - neutralRatio) * virtualLength;
+    float regenSpan = neutralRatio * virtualLength;
+    float litLength = reverse ? (regenSpan * ratio) : (accelSpan * ratio);
     float segmentSize = virtualLength / (float)total; // virtual units per physical pixel
 
     // Color gradient shifts from cool (low throttle) to warm (high throttle).
-    uint8_t r = (uint8_t)(20.0f + (235.0f * ratio));
-    uint8_t g = (uint8_t)(20.0f + (120.0f * (1.0f - ratio)));
-    uint8_t b = (uint8_t)(30.0f + (180.0f * (1.0f - ratio)));
+    // Regen uses a fixed red hue.
+    uint8_t r = 0;
+    uint8_t g = 0;
+    uint8_t b = 0;
+    if (reverse)
+    {
+        // Regen gradient from pale green -> strong green as regen strength increases.
+        float inv = 1.0f - ratio;
+        if (inv < 0.0f)
+            inv = 0.0f;
+        if (inv > 1.0f)
+            inv = 1.0f;
+        r = (uint8_t)(180.0f * inv);
+        g = 255;
+        b = (uint8_t)(180.0f * inv);
+    }
+    else
+    {
+        r = (uint8_t)(20.0f + (235.0f * ratio));
+        g = (uint8_t)(20.0f + (120.0f * (1.0f - ratio)));
+        b = (uint8_t)(30.0f + (180.0f * (1.0f - ratio)));
+    }
 
     auto scaledColor = [&](float scale)
     {
@@ -116,20 +137,37 @@ void LightStripManager::applyAccelPattern(uint32_t now)
 
     for (uint16_t i = 0; i < total; ++i)
     {
-        uint16_t pixelIndex = _reverse ? (uint16_t)(total - 1 - i) : i;
-        float start = segmentSize * (float)pixelIndex;
+        float start = segmentSize * (float)i;
         float end = start + segmentSize;
 
         float covered = 0.0f;
-        if (litLength > start)
+        if (reverse)
         {
-            float clippedEnd = (litLength < end) ? litLength : end;
-            covered = clippedEnd - start;
-            if (covered < 0.0f)
-                covered = 0.0f;
-            if (covered > segmentSize)
-                covered = segmentSize;
+            float litStart = neutralPos - litLength;
+            float litEnd = neutralPos;
+            if (litEnd > start && litStart < end)
+            {
+                float clippedStart = (litStart > start) ? litStart : start;
+                float clippedEnd = (litEnd < end) ? litEnd : end;
+                covered = clippedEnd - clippedStart;
+            }
         }
+        else
+        {
+            float litStart = neutralPos;
+            float litEnd = neutralPos + litLength;
+            if (litEnd > start && litStart < end)
+            {
+                float clippedStart = (litStart > start) ? litStart : start;
+                float clippedEnd = (litEnd < end) ? litEnd : end;
+                covered = clippedEnd - clippedStart;
+            }
+        }
+
+        if (covered < 0.0f)
+            covered = 0.0f;
+        if (covered > segmentSize)
+            covered = segmentSize;
 
         float coverageRatio = covered / segmentSize; // 0..1 fraction of this pixel lit
         _strip.setPixelColor(i, scaledColor(coverageRatio));
@@ -137,6 +175,6 @@ void LightStripManager::applyAccelPattern(uint32_t now)
 
     _strip.show();
 
-    _lastRenderedPercent = percent;
+    _lastRenderedPercent = signedPercent;
     _needsRefresh = false;
 }

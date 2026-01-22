@@ -19,8 +19,7 @@ public:
         float torqueCommandNm = 0.0f; // DI_torqueCommand (12|13@1- scale 2, offset 0)
         float axleSpeedRpm = 0.0f;    // DI_axleSpeed (40|16@1- scale 0.1, offset 0)
         float powerW = 0.0f;          // Derived power (torque * omega)
-        float powerPercent = 0.0f;    // 0..100 mapped from powerW magnitude
-        bool reversing = false;       // True when power is negative (regen)
+        float powerPercentSigned = 0.0f; // -100..100 mapped from powerW
         uint32_t lastRxMs = 0;        // millis() timestamp when received
     };
 
@@ -137,25 +136,61 @@ public:
                 float omega = axleRpm * rpmToRad;
                 float powerW = torqueNm * omega;
 
-                bool reversing = powerW < 0.0f;
+                if (!_regenActive)
+                {
+                    if (powerW <= -POWER_REGEN_ON_W)
+                        _regenActive = true;
+                }
+                else
+                {
+                    if (powerW >= -POWER_REGEN_OFF_W)
+                        _regenActive = false;
+                }
+
+                bool reversing = _regenActive;
                 float powerForDisplay = reversing ? -powerW : powerW;
+                if (powerForDisplay < 0.0f)
+                    powerForDisplay = 0.0f;
 
                 float powerPercent = 0.0f;
-                if (powerForDisplay >= POWER_MIN_W && POWER_MAX_W > POWER_MIN_W)
+                if (!reversing)
                 {
-                    float clamped = powerForDisplay;
-                    if (clamped > POWER_MAX_W)
-                        clamped = POWER_MAX_W;
-                    powerPercent = ((clamped - POWER_MIN_W) / (POWER_MAX_W - POWER_MIN_W)) * 100.0f;
+                    if (powerForDisplay >= POWER_ACCEL_MIN_W && POWER_ACCEL_MAX_W > POWER_ACCEL_MIN_W)
+                    {
+                        float clamped = powerForDisplay;
+                        if (clamped > POWER_ACCEL_MAX_W)
+                            clamped = POWER_ACCEL_MAX_W;
+                        float ratio = (clamped - POWER_ACCEL_MIN_W) / (POWER_ACCEL_MAX_W - POWER_ACCEL_MIN_W);
+                        if (ratio < 0.0f)
+                            ratio = 0.0f;
+                        if (ratio > 1.0f)
+                            ratio = 1.0f;
+                        powerPercent = ratio * 100.0f;
+                    }
                 }
+                else
+                {
+                    if (powerForDisplay >= POWER_REGEN_MIN_W && POWER_REGEN_MAX_W > POWER_REGEN_MIN_W)
+                    {
+                        float clamped = powerForDisplay;
+                        if (clamped > POWER_REGEN_MAX_W)
+                            clamped = POWER_REGEN_MAX_W;
+                        float ratio = (clamped - POWER_REGEN_MIN_W) / (POWER_REGEN_MAX_W - POWER_REGEN_MIN_W);
+                        if (ratio < 0.0f)
+                            ratio = 0.0f;
+                        if (ratio > 1.0f)
+                            ratio = 1.0f;
+                        powerPercent = ratio * 100.0f;
+                    }
+                }
+                float powerPercentSigned = reversing ? -powerPercent : powerPercent;
 
                 uint32_t nowMs = millis();
                 DITorqueMsg msg;
                 msg.torqueCommandNm = torqueNm;
                 msg.axleSpeedRpm = axleRpm;
                 msg.powerW = powerW;
-                msg.powerPercent = powerPercent;
-                msg.reversing = reversing;
+                msg.powerPercentSigned = powerPercentSigned;
                 msg.lastRxMs = nowMs;
                 _diTorque = msg;
                 _diTorqueNew = true;
@@ -191,4 +226,5 @@ private:
     bool _debugDecoded = true; // default show decoded message when present
     DITorqueMsg _diTorque{};
     bool _diTorqueNew = false;
+    bool _regenActive = false;
 };

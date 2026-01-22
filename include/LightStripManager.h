@@ -12,7 +12,7 @@ public:
                uint8_t i2cAddr = NEOPIXEL_I2C_ADDR);
 
     bool begin();
-    void setAccelPosition(float percent, bool reverse);
+    void setAccelPercent(float signedPercent);
     void setDemoMode(bool enabled)
     {
         if (_demoMode != enabled)
@@ -30,9 +30,8 @@ private:
     seesaw_NeoPixel _strip;
     uint8_t _i2cAddr;
     bool _demoMode{DEMO_MODE};
-    float _accelPercent{0.0f};
+    float _accelPercent{0.0f}; // -100..100
     bool _hasAccel{false};
-    bool _reverse{false};
     float _smoothedPercent{0.0f};
     uint32_t _lastSmoothMs{0};
     float _lastRenderedPercent{-1.0f};

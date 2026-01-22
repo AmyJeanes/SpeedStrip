@@ -88,8 +88,6 @@ void loop()
     static uint32_t stripCount = 0;
     static uint32_t stripAccumUs = 0;
     static uint32_t stripMaxUs = 0;
-    static uint32_t torqueMsgCount = 0;
-    static uint32_t rateLastMs = 0;
 
     uint32_t loopStartUs = micros();
     uint32_t now = millis();
@@ -107,8 +105,7 @@ void loop()
     if (g_can.hasNewDITorque())
     {
         auto di = g_can.getDITorque();
-        g_lightStrip.setAccelPosition(di.powerPercent, di.reversing);
-        ++torqueMsgCount;
+        g_lightStrip.setAccelPercent(di.powerPercentSigned);
     }
 
     uint32_t stripStartUs = micros();
@@ -158,15 +155,4 @@ void loop()
         }
     }
 
-    // Simple debug rate print for DI_torque frames.
-    if (rateLastMs == 0)
-        rateLastMs = now;
-    if (now - rateLastMs >= 1000)
-    {
-        Serial.print(F("[rate] DI_torque "));
-        Serial.print(torqueMsgCount);
-        Serial.println(F(" msg/s"));
-        torqueMsgCount = 0;
-        rateLastMs = now;
-    }
 }
